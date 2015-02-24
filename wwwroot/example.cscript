@@ -1,0 +1,16 @@
+string foo = "My Great Script!!!";
+wout.WriteLine("<html>");
+wout.WriteLine("<body>");
+wout.WriteLine("<h1>");
+wout.WriteLine(foo);
+wout.WriteLine("</h1>");
+DateTime dt = DateTime.Now;
+wout.WriteLine(string.Format("<p>The current time is {0}</p>", dt.ToString("MMM dd, yyyy hhh:mm:ss")));
+
+string val = "not provided";
+
+try {
+    val = request["user"];
+} catch ( Exception e ) {}
+
+wout.WriteLine("The value of parameter user is {0}", val);
