@@ -1,0 +1,17 @@
+<html>
+	<body>
+	<h1>My List</h1>
+		{
+			var list = request["items"].Split('-');
+		}
+		<ul>
+		{
+			foreach (var item in list) {
+		}
+		<li>@{item}</li>
+		{
+			}
+		}
+		</ul>
+	</body>
+</html>

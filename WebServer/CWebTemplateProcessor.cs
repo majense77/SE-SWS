@@ -33,10 +33,10 @@ namespace WebServer
         private string ProcessInput(List<string> inputLines, StringBuilder sb)
         {
             int length = inputLines.Count;
-            bool brace, atBrace, request;
+            bool brace, atBrace, request, end;
             int index = 0, openingIndex = 0;
 
-            foreach (String line in inputLines)
+            for (int l = 0; l < length; l++ )
             {
                 if (index > openingIndex)
                 {
@@ -45,9 +45,10 @@ namespace WebServer
                     index--;
                     continue;
                 }
-                brace = line.Contains("{");
-                atBrace = line.Contains("@{");
-                request = line.Contains("request[");
+                brace = inputLines[l].Contains("{");
+                atBrace = inputLines[l].Contains("@{");
+                request = inputLines[l].Contains("request[");
+                end = inputLines[l].Contains("}");
 
                 if (request)
                 {
@@ -57,7 +58,7 @@ namespace WebServer
                 if (atBrace)
                 {
                     //this is a parameter or variable, so we need to separate the call
-                    var separatedLine = line.Split(new char[] { '{', '}' });
+                    var separatedLine = inputLines[l].Split(new char[] { '{', '}' });
 
                     //and then append the surrounding html along with the code to output the var
                     sb.Append(formatMarkup(separatedLine[0].Substring(0, separatedLine[0].Length - 1)));
@@ -73,37 +74,51 @@ namespace WebServer
                 else if (brace)
                 {
                     //this is a code block, so we need to find the end of it
-                    bool found = false;
-                    int match = 0;
-                    index = inputLines.IndexOf(line);
+                    bool found = false, sameLine = false, innerRequest = false;
+                    //int match = 0;
+                    index = l;
                     openingIndex = index;
-                    
+
                     //keep looping as long as the closing brace that matches the opening brace hasn't been located
-                    while ((match != 0) || (!found))
+                    while ((!found))
                     {
-                        index++;
+                        if (!innerRequest)
+                            innerRequest = inputLines[index].Contains("request[");
+
                         if (inputLines[index].Contains("}"))
                         {
-                            if (match != 0)
-                                match--;
-                            else
+
+                            if (inputLines[index + 1].Contains("<"))
+                            {
                                 found = true;
+                                if (index == openingIndex)
+                                    sameLine = true;
+                                continue;
+                            }
+
                         }
 
-                        else if (inputLines[index].Contains("{"))
-                        {
-                            match++;
-                        }
+                        index++;
                     }
 
                     /* This won't work if we append the braces on either side, so the lines
                      * containing those are ommitted */
-                    for (int a = inputLines.IndexOf(line) + 1; a < index; a++)
+                    if (sameLine)
                     {
-                        sb.Append(inputLines[a]);
+                        int openingBrace = inputLines[openingIndex].IndexOf('{');
+                        int closingBrace = inputLines[openingIndex].IndexOf('}');
+                        String input = _substring(inputLines[l], openingBrace + 1, closingBrace);
+                        sb.Append(input);
+                    }
+                    else
+                    {
+                        for (int a = l + 1; a < index; a++)
+                        {
+                            sb.Append(inputLines[a]);
+                        }
                     }
 
-                    if (request)
+                    if (request )
                     {
                         sb.Append("} catch (Exception e) {Console.Write(e); wout.WriteLine(\"<h4>Unable to set variable!</h4>\");}");
                     }
@@ -112,13 +127,14 @@ namespace WebServer
                 else
                 {
                     //Regular HTML statement
-                    sb.Append(formatMarkup(line));
+                    sb.Append(formatMarkup(inputLines[l]));
                 }
 
                 //reset for next iteration
                 brace = false;
                 atBrace = false;
                 request = false;
+                end = false;
             }
 
             return sb.ToString();
@@ -150,6 +166,15 @@ namespace WebServer
         {
             //This will write the code blocks directly to the stream, making them execuatble.
             return String.Format("wout.WriteLine({0});", var);
+        }
+
+        private String _substring(string text, int start, int length)
+        {
+            if (start >= text.Length)
+                return "";
+            if (start + length > text.Length)
+                length = text.Length - start;
+            return text.Substring(start, length-1);
         }
     }
 }
