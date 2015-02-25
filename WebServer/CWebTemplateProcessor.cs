@@ -34,6 +34,19 @@ namespace WebServer
         }
        
         private Stream createStream(String template)
+        {
+            MemoryStream ms = new MemoryStream();
+            StreamWriter w = new StreamWriter(ms);
+            w.Write(template);
+
+            //Have to flush the stream to make sure all data is properly written
+            w.Flush();
+
+            //It took an hour to figure out that stream position was a thing :/
+            ms.Position = 0;
+            return ms;
+        }
+
 
         private String formatMarkup(String markup)
         {
@@ -172,6 +185,7 @@ namespace WebServer
                 length = text.Length - start;
             return text.Substring(start, length-1);
         }
-  
+
+        
     }
 }
