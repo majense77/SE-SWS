@@ -9,9 +9,12 @@ namespace WebServer
 {
     class CWebTemplateProcessor : IScriptProcessor
     {
+
+        private StringBuilder sb;
+
         public ScriptResult ProcessScript(Stream stream, IDictionary<string, string> requestParameters)
         {
-            StringBuilder sb = new StringBuilder();
+            sb = new StringBuilder();
             CscriptProcessor scriptProcessor = new CscriptProcessor();
             List<String> inputLines = new List<String>();
 
@@ -22,15 +25,78 @@ namespace WebServer
                 inputLines.Add(line);
             }
 
-            String parsedScript = ProcessInput(inputLines, sb);
+            String parsedScript = ProcessInput(inputLines);
 
             stream = createStream(parsedScript);
 
             ScriptResult result = scriptProcessor.ProcessScript(stream, requestParameters);
             return result;
         }
+       
+        private Stream createStream(String template)
 
-        private string ProcessInput(List<string> inputLines, StringBuilder sb)
+        private String formatMarkup(String markup)
+        {
+            //need to make sure that quotes in HTML will be treated as such - element data and the like
+            return String.Format("wout.WriteLine(\"{0}\");", markup.Replace("\"", "\\\""));
+            //return String.Format("wout.WriteLine(\"{0}\");", markup);
+
+        }
+
+        private String formatVar(String var)
+        {
+            //This will write the code blocks directly to the stream, making them execuatble.
+            return String.Format("wout.WriteLine({0});", var);
+        }
+
+        private int handleCodeBlock(List<String> inputLines, int l)
+        {
+            //this is a code block, so we need to find the end of it
+            bool found = false, sameLine = false;
+            //int match = 0;
+            int index = l;
+
+            //keep looping as long as the closing brace that matches the opening brace hasn't been located
+            while ((!found))
+            {
+
+                if (inputLines[index].Contains("}"))
+                {
+
+                    if (inputLines[index + 1].Contains("<"))
+                    {
+                        found = true;
+                        if (index == l)
+                            sameLine = true;
+                        continue;
+                    }
+
+                }
+
+                index++;
+            }
+
+            /* This won't work if we append the braces on either side, so the lines
+                * containing those are ommitted */
+            if (sameLine)
+            {
+                int openingBrace = inputLines[l].IndexOf('{');
+                int closingBrace = inputLines[l].IndexOf('}');
+                String input = _substring(inputLines[l], openingBrace + 1, closingBrace);
+                sb.Append(input);
+            }
+            else
+            {
+                for (int a = l + 1; a < index; a++)
+                {
+                    sb.Append(inputLines[a]);
+                }
+            }
+
+            return index;
+        }
+
+        private string ProcessInput(List<string> inputLines)
         {
             int length = inputLines.Count;
             bool brace, atBrace, request, end;
@@ -41,7 +107,7 @@ namespace WebServer
                 if (index > openingIndex)
                 {
                     /* we've already accounted for these when we found the opening and closing brace
-                     * so, we need to skip these interations */
+                        * so, we need to skip these interations */
                     index--;
                     continue;
                 }
@@ -73,50 +139,8 @@ namespace WebServer
 
                 else if (brace)
                 {
-                    //this is a code block, so we need to find the end of it
-                    bool found = false, sameLine = false, innerRequest = false;
-                    //int match = 0;
-                    index = l;
-                    openingIndex = index;
-
-                    //keep looping as long as the closing brace that matches the opening brace hasn't been located
-                    while ((!found))
-                    {
-                        if (!innerRequest)
-                            innerRequest = inputLines[index].Contains("request[");
-
-                        if (inputLines[index].Contains("}"))
-                        {
-
-                            if (inputLines[index + 1].Contains("<"))
-                            {
-                                found = true;
-                                if (index == openingIndex)
-                                    sameLine = true;
-                                continue;
-                            }
-
-                        }
-
-                        index++;
-                    }
-
-                    /* This won't work if we append the braces on either side, so the lines
-                     * containing those are ommitted */
-                    if (sameLine)
-                    {
-                        int openingBrace = inputLines[openingIndex].IndexOf('{');
-                        int closingBrace = inputLines[openingIndex].IndexOf('}');
-                        String input = _substring(inputLines[l], openingBrace + 1, closingBrace);
-                        sb.Append(input);
-                    }
-                    else
-                    {
-                        for (int a = l + 1; a < index; a++)
-                        {
-                            sb.Append(inputLines[a]);
-                        }
-                    }
+                    openingIndex = l;
+                    index = handleCodeBlock(inputLines, l);
 
                     if (request )
                     {
@@ -140,34 +164,6 @@ namespace WebServer
             return sb.ToString();
         }
 
-        private Stream createStream(String template)
-        {
-            MemoryStream ms = new MemoryStream();
-            StreamWriter w = new StreamWriter(ms);
-            w.Write(template);
-
-            //Have to flush the stream to make sure all data is properly written
-            w.Flush();
-
-            //It took an hour to figure out that stream position was a thing :/
-            ms.Position = 0;
-            return ms;
-        }
-
-        private String formatMarkup(String markup)
-        {
-            //need to make sure that quotes in HTML will be treated as such - element data and the like
-            return String.Format("wout.WriteLine(\"{0}\");", markup.Replace("\"", "\\\""));
-            //return String.Format("wout.WriteLine(\"{0}\");", markup);
-
-        }
-
-        private String formatVar(String var)
-        {
-            //This will write the code blocks directly to the stream, making them execuatble.
-            return String.Format("wout.WriteLine({0});", var);
-        }
-
         private String _substring(string text, int start, int length)
         {
             if (start >= text.Length)
@@ -176,5 +172,6 @@ namespace WebServer
                 length = text.Length - start;
             return text.Substring(start, length-1);
         }
+  
     }
 }
