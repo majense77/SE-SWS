@@ -140,16 +140,26 @@ namespace WebServer
                  * a default document doesn't exist, an HTTP Not Found response should
                  * be returned
                  */
-                if (resource.Equals("/"))
+                if (resource.EndsWith("/"))
                 {
-                    String[] paths = Directory.GetFiles(_webRoot, _defaultPath, SearchOption.AllDirectories);
-                    if (paths.Length > 0) 
+                    String[] paths;
+                    try
                     {
-                        _ProcessBody(socket, paths[0], null);
+                        paths = Directory.GetFiles(_webRoot + resource, _defaultPath, SearchOption.AllDirectories);
+                        
+                        if (paths.Length > 0)
+                        {
+                            _ProcessBody(socket, paths[0], null);
+                        }
+                        else
+                        {
+                            _SendResponse(socket, new byte[0], null, ResponseType.NOT_FOUND);
+                        }
                     }
-                    else 
+                    catch (DirectoryNotFoundException d)
                     {
-                        _SendResponse(socket, new byte[0], null, ResponseType.NOT_FOUND);  
+                        Console.Write("Directory not found!");
+                        _SendResponse(socket, new byte[0], null, ResponseType.NOT_FOUND);
                     }
                 }
                 else
